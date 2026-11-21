@@ -6,6 +6,7 @@ import {
   Heart,
   ShoppingBag,
   Scale,
+  User,
   Menu,
   X,
 } from 'lucide-react';
@@ -15,9 +16,11 @@ export function Header({ searchQuery, setSearchQuery, onSelectCategory }) {
     cartTotals,
     wishlist,
     compareList,
+    orders,
     setIsCartOpen,
     setIsWishlistOpen,
     setIsCompareModalOpen,
+    setIsAccountOpen,
   } = useApp();
 
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -92,6 +95,20 @@ export function Header({ searchQuery, setSearchQuery, onSelectCategory }) {
               <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-accent text-on-accent text-[10px] font-mono font-bold flex items-center justify-center">
                 {wishlist.length}
               </span>
+            )}
+          </button>
+
+          {/* User / My Account Button */}
+          <button
+            type="button"
+            onClick={() => setIsAccountOpen(true)}
+            className="relative p-2.5 text-text-secondary hover:text-text-primary hover:bg-bg-surface rounded border border-transparent hover:border-line-subtle transition-colors"
+            title="My Showroom Account & Orders"
+            aria-label="Open My Account"
+          >
+            <User className="w-5 h-5" />
+            {orders.length > 0 && (
+              <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-accent" />
             )}
           </button>
 
@@ -192,6 +209,19 @@ export function Header({ searchQuery, setSearchQuery, onSelectCategory }) {
             >
               Mechanical & Peripherals
             </button>
+            <div className="pt-2 mt-1 border-t border-line-subtle flex items-center justify-between">
+              <button
+                type="button"
+                onClick={() => {
+                  setIsAccountOpen(true);
+                  setMobileMenuOpen(false);
+                }}
+                className="inline-flex items-center gap-2 text-xs py-2 text-accent font-mono uppercase font-semibold"
+              >
+                <User className="w-4 h-4" />
+                <span>My Account & Orders ({orders.length})</span>
+              </button>
+            </div>
           </div>
         </div>
       )}

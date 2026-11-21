@@ -11,6 +11,7 @@ import { ComparisonModal } from './components/ComparisonModal';
 import { CartDrawer } from './components/CartDrawer';
 import { WishlistDrawer } from './components/WishlistDrawer';
 import { CheckoutModal } from './components/CheckoutModal';
+import { AccountModal } from './components/AccountModal';
 import { ToastContainer } from './components/Toast';
 import { Footer } from './components/Footer';
 import { SearchX, SlidersHorizontal } from 'lucide-react';
@@ -165,6 +166,7 @@ function VantryShowroom() {
       <CartDrawer />
       <WishlistDrawer />
       <CheckoutModal />
+      <AccountModal />
 
       {/* Global Toast Alerts */}
       <ToastContainer />

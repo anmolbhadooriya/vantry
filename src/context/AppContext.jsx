@@ -5,9 +5,38 @@ const AppContext = createContext(null);
 const STORAGE_KEYS = {
   CART: 'vantry_cart_v1',
   WISHLIST: 'vantry_wishlist_v1',
+  PROFILE: 'vantry_profile_v1',
+  ORDERS: 'vantry_orders_v1',
+};
+
+const DEFAULT_PROFILE = {
+  name: 'Anmol Singh',
+  email: 'anmol@vantry.in',
+  phone: '9876543210',
+  address: '42, 100 Feet Road, Indiranagar',
+  city: 'Bengaluru',
+  state: 'Karnataka',
+  pincode: '560038',
 };
 
 export function AppProvider({ children }) {
+  // ----------------------------------------------------
+  // Toast Notifications System
+  // ----------------------------------------------------
+  const [toasts, setToasts] = useState([]);
+
+  const showToast = (message, type = 'info') => {
+    const id = Date.now() + Math.random().toString(36).substring(2, 6);
+    setToasts((prev) => [...prev, { id, message, type }]);
+    setTimeout(() => {
+      setToasts((prev) => prev.filter((t) => t.id !== id));
+    }, 3800);
+  };
+
+  const dismissToast = (id) => {
+    setToasts((prev) => prev.filter((t) => t.id !== id));
+  };
+
   // ----------------------------------------------------
   // Wishlist State (persisted in LocalStorage)
   // ----------------------------------------------------
@@ -29,16 +58,17 @@ export function AppProvider({ children }) {
   }, [wishlist]);
 
   const toggleWishlist = (product) => {
-    setWishlist((prev) => {
-      const exists = prev.some((item) => item.id === product.id);
-      if (exists) {
-        showToast(`Removed "${product.name}" from wishlist`, 'info');
-        return prev.filter((item) => item.id !== product.id);
-      } else {
-        showToast(`Added "${product.name}" to wishlist`, 'success');
-        return [...prev, product];
-      }
-    });
+    const exists = wishlist.some((item) => item.id === product.id);
+    setWishlist((prev) =>
+      exists ? prev.filter((item) => item.id !== product.id) : [...prev, product]
+    );
+
+    // Call showToast OUTSIDE the state updater to prevent duplicate calls in React StrictMode
+    if (exists) {
+      showToast(`Removed "${product.name}" from wishlist`, 'info');
+    } else {
+      showToast(`Added "${product.name}" to wishlist`, 'success');
+    }
   };
 
   const isInWishlist = (productId) => wishlist.some((item) => item.id === productId);
@@ -63,7 +93,11 @@ export function AppProvider({ children }) {
     }
   }, [cart]);
 
+  // Clean, single-dispatch addToCart that invokes showToast exactly once outside state updaters
   const addToCart = (product, quantity = 1) => {
+    const existing = cart.find((item) => item.product.id === product.id);
+    const newQty = existing ? existing.quantity + quantity : quantity;
+
     setCart((prev) => {
       const existingIndex = prev.findIndex((item) => item.product.id === product.id);
       if (existingIndex > -1) {
@@ -72,13 +106,17 @@ export function AppProvider({ children }) {
           ...next[existingIndex],
           quantity: next[existingIndex].quantity + quantity,
         };
-        showToast(`Updated quantity for "${product.name}" (${next[existingIndex].quantity})`, 'success');
         return next;
-      } else {
-        showToast(`Added "${product.name}" to cart`, 'success');
-        return [...prev, { product, quantity }];
       }
+      return [...prev, { product, quantity }];
     });
+
+    // Notify exactly once outside setState
+    if (existing) {
+      showToast(`Updated quantity for "${product.name}" (${newQty})`, 'success');
+    } else {
+      showToast(`Added "${product.name}" to cart`, 'success');
+    }
   };
 
   const updateCartQuantity = (productId, newQuantity) => {
@@ -94,13 +132,11 @@ export function AppProvider({ children }) {
   };
 
   const removeFromCart = (productId) => {
-    setCart((prev) => {
-      const found = prev.find((item) => item.product.id === productId);
-      if (found) {
-        showToast(`Removed "${found.product.name}" from cart`, 'info');
-      }
-      return prev.filter((item) => item.product.id !== productId);
-    });
+    const found = cart.find((item) => item.product.id === productId);
+    setCart((prev) => prev.filter((item) => item.product.id !== productId));
+    if (found) {
+      showToast(`Removed "${found.product.name}" from cart`, 'info');
+    }
   };
 
   const clearCart = () => setCart([]);
@@ -112,9 +148,7 @@ export function AppProvider({ children }) {
       (acc, item) => acc + item.product.price * item.quantity,
       0
     );
-    // Free delivery on all orders in Vantry showroom
     const shippingPaise = 0;
-    // 18% GST included or broken down
     const gstPaise = Math.round((subtotalPaise * 18) / 118);
     const totalPaise = subtotalPaise;
 
@@ -134,19 +168,18 @@ export function AppProvider({ children }) {
   const [isCompareModalOpen, setIsCompareModalOpen] = useState(false);
 
   const toggleCompare = (product) => {
-    setCompareList((prev) => {
-      const exists = prev.some((p) => p.id === product.id);
-      if (exists) {
-        showToast(`Removed "${product.name}" from comparison`, 'info');
-        return prev.filter((p) => p.id !== product.id);
-      }
-      if (prev.length >= 3) {
-        showToast('Comparison limit reached (max 3 products). Remove one to add this.', 'warning');
-        return prev;
-      }
-      showToast(`Added "${product.name}" to comparison (${prev.length + 1}/3)`, 'success');
-      return [...prev, product];
-    });
+    const exists = compareList.some((p) => p.id === product.id);
+    if (exists) {
+      setCompareList((prev) => prev.filter((p) => p.id !== product.id));
+      showToast(`Removed "${product.name}" from comparison`, 'info');
+      return;
+    }
+    if (compareList.length >= 3) {
+      showToast('Comparison limit reached (max 3 products). Remove one to add this.', 'warning');
+      return;
+    }
+    setCompareList((prev) => [...prev, product]);
+    showToast(`Added "${product.name}" to comparison (${compareList.length + 1}/3)`, 'success');
   };
 
   const removeFromCompare = (productId) => {
@@ -158,30 +191,60 @@ export function AppProvider({ children }) {
   const isInCompare = (productId) => compareList.some((p) => p.id === productId);
 
   // ----------------------------------------------------
+  // User Profile State (persisted in LocalStorage)
+  // ----------------------------------------------------
+  const [userProfile, setUserProfile] = useState(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEYS.PROFILE);
+      return saved ? JSON.parse(saved) : DEFAULT_PROFILE;
+    } catch {
+      return DEFAULT_PROFILE;
+    }
+  });
+
+  const updateProfile = (newProfile) => {
+    setUserProfile(newProfile);
+    try {
+      localStorage.setItem(STORAGE_KEYS.PROFILE, JSON.stringify(newProfile));
+      showToast('Profile updated successfully', 'success');
+    } catch (e) {
+      console.warn('Failed to save profile to localStorage', e);
+    }
+  };
+
+  // ----------------------------------------------------
+  // Orders State (persisted in LocalStorage)
+  // ----------------------------------------------------
+  const [orders, setOrders] = useState(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEYS.ORDERS);
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  const saveOrder = (newOrder) => {
+    setOrders((prev) => {
+      const updated = [newOrder, ...prev];
+      try {
+        localStorage.setItem(STORAGE_KEYS.ORDERS, JSON.stringify(updated));
+      } catch (e) {
+        console.warn('Failed to save orders to localStorage', e);
+      }
+      return updated;
+    });
+  };
+
+  // ----------------------------------------------------
   // Active UI Drawers & Modals
   // ----------------------------------------------------
   const [quickViewProduct, setQuickViewProduct] = useState(null);
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [isWishlistOpen, setIsWishlistOpen] = useState(false);
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
+  const [isAccountOpen, setIsAccountOpen] = useState(false);
   const [orderConfirmation, setOrderConfirmation] = useState(null);
-
-  // ----------------------------------------------------
-  // Toast Notifications
-  // ----------------------------------------------------
-  const [toasts, setToasts] = useState([]);
-
-  const showToast = (message, type = 'info') => {
-    const id = Date.now() + Math.random().toString(36).substring(2, 6);
-    setToasts((prev) => [...prev, { id, message, type }]);
-    setTimeout(() => {
-      setToasts((prev) => prev.filter((t) => t.id !== id));
-    }, 3800);
-  };
-
-  const dismissToast = (id) => {
-    setToasts((prev) => prev.filter((t) => t.id !== id));
-  };
 
   const value = {
     // Wishlist
@@ -209,6 +272,14 @@ export function AppProvider({ children }) {
     isInCompare,
     isCompareModalOpen,
     setIsCompareModalOpen,
+
+    // User Profile & Orders (Task 2)
+    userProfile,
+    updateProfile,
+    orders,
+    saveOrder,
+    isAccountOpen,
+    setIsAccountOpen,
 
     // Modals
     quickViewProduct,

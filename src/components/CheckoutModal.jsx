@@ -23,18 +23,35 @@ export function CheckoutModal() {
     clearCart,
     orderConfirmation,
     setOrderConfirmation,
+    userProfile,
+    saveOrder,
+    setIsAccountOpen,
   } = useApp();
 
   const [formData, setFormData] = useState({
-    name: 'Anmol Singh',
-    email: 'anmol@example.com',
-    phone: '9876543210',
-    address: '42, 100 Feet Road, Indiranagar',
-    city: 'Bengaluru',
-    state: 'Karnataka',
-    pincode: '560038',
+    name: userProfile?.name || 'Anmol Singh',
+    email: userProfile?.email || 'anmol@vantry.in',
+    phone: userProfile?.phone || '9876543210',
+    address: userProfile?.address || '42, 100 Feet Road, Indiranagar',
+    city: userProfile?.city || 'Bengaluru',
+    state: userProfile?.state || 'Karnataka',
+    pincode: userProfile?.pincode || '560038',
     paymentMethod: 'upi', // 'upi' | 'card' | 'netbanking'
   });
+
+  // Sync profile when modal opens
+  useEffect(() => {
+    if (userProfile && isCheckoutOpen) {
+      setFormData((prev) => ({
+        ...prev,
+        name: userProfile.name || prev.name,
+        email: userProfile.email || prev.email,
+        phone: userProfile.phone || prev.phone,
+        city: userProfile.city || prev.city,
+        state: userProfile.state || prev.state,
+      }));
+    }
+  }, [userProfile, isCheckoutOpen]);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -72,11 +89,14 @@ export function CheckoutModal() {
           day: 'numeric',
         }),
         estimatedDelivery: '3 to 4 Business Days (Insured White-Glove)',
+        status: 'Confirmed · Preparing for Dispatch',
         items: [...cart],
         totals: { ...cartTotals },
         shippingAddress: { ...formData },
+        paymentMethod: formData.paymentMethod,
       };
       setOrderConfirmation(confirmation);
+      saveOrder(confirmation); // Automatically save to LocalStorage Order History
       clearCart();
       setIsSubmitting(false);
     }, 1200);
@@ -164,13 +184,26 @@ export function CheckoutModal() {
               </div>
             </div>
 
-            <button
-              type="button"
-              onClick={handleClose}
-              className="px-6 py-2.5 rounded bg-accent text-on-accent text-xs font-semibold hover:bg-accent-hover active:bg-accent-press transition-colors shadow-sm"
-            >
-              Return to Showroom
-            </button>
+            <div className="flex flex-col sm:flex-row items-center gap-3">
+              <button
+                type="button"
+                onClick={handleClose}
+                className="w-full sm:w-auto px-6 py-2.5 rounded bg-accent text-on-accent text-xs font-semibold hover:bg-accent-hover active:bg-accent-press transition-colors shadow-sm"
+              >
+                Return to Showroom
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  handleClose();
+                  setIsAccountOpen(true);
+                }}
+                className="w-full sm:w-auto px-5 py-2.5 rounded border border-line-strong bg-bg-surface hover:border-accent hover:text-accent text-xs font-medium transition-colors"
+              >
+                View in My Account & Orders
+              </button>
+            </div>
           </div>
         ) : (
           /* ============================================================ */
